@@ -5,6 +5,9 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from model_runtime import PalmImageProcessor, load_production_predictor, predict_image
+from modules.palm_dl_pipeline import TARGET_PALM_FEATURES
+
 
 BASE_DIR = Path(__file__).parent
 ASSET_DIR = BASE_DIR / "assets"
@@ -61,6 +64,11 @@ def metric_card(label: str, value: str, note: str) -> None:
     )
 
 
+@st.cache_resource(show_spinner=False)
+def get_predictor():
+    return load_production_predictor()
+
+
 metrics = load_metrics()
 best = metrics.loc[metrics["val_accuracy"].idxmax()]
 
@@ -70,7 +78,7 @@ with st.sidebar:
     st.divider()
     page = st.radio(
         "Navigasi",
-        ["Executive Summary", "Model Performance", "Inference Evidence", "Methodology"],
+        ["Live Prediction", "Executive Summary", "Model Performance", "Inference Evidence", "Methodology"],
         label_visibility="collapsed",
     )
     st.divider()
@@ -83,15 +91,113 @@ with st.sidebar:
 st.markdown(
     """
     <div class="hero">
-      <div class="eyebrow">CLIENT VALIDATION DEMO</div>
+      <div class="eyebrow">INTERACTIVE MODEL DEMO</div>
       <h1>Palmistry AI</h1>
-      <p>Technical evidence for a 4-channel ResNet50 palm-feature classification pipeline.</p>
+      <p>Camera and image-upload inference powered by the validated 4-channel ResNet50 checkpoint.</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-if page == "Executive Summary":
+if page == "Live Prediction":
+    st.subheader("Coba model dengan foto telapak tangan")
+    st.markdown(
+        "Ambil foto langsung dari kamera atau unggah gambar. Posisikan **telapak terbuka, "
+        "tegak, di tengah**, dengan pencahayaan merata dan latar yang tidak ramai."
+    )
+
+    input_mode = st.radio(
+        "Sumber gambar",
+        ["Kamera", "Upload gambar"],
+        horizontal=True,
+    )
+    if input_mode == "Kamera":
+        image_input = st.camera_input("Ambil foto telapak tangan")
+    else:
+        image_input = st.file_uploader(
+            "Upload JPG, JPEG, PNG, atau WEBP",
+            type=["jpg", "jpeg", "png", "webp"],
+        )
+
+    threshold = st.slider(
+        "Ambang confidence",
+        min_value=0.20,
+        max_value=0.80,
+        value=0.40,
+        step=0.05,
+        help="Fitur dengan skor di atas nilai ini ditandai sebagai terdeteksi.",
+    )
+
+    if image_input is None:
+        st.info("Aktifkan kamera atau unggah gambar untuk memulai prediksi.")
+    else:
+        processor = PalmImageProcessor(target_size=1024)
+        try:
+            with st.spinner("Menyiapkan citra 4-kanal (CLAHE + Hessian ridge)..."):
+                tensor_4ch, preview_rgb, ridge_map, quality = processor.prepare(image_input)
+
+            preview_col, ridge_col = st.columns(2)
+            with preview_col:
+                st.image(preview_rgb, caption="Citra terproses dan dinormalisasi", width="stretch")
+            with ridge_col:
+                st.image(ridge_map, caption="Hessian ridge map — kanal ke-4", width="stretch", clamp=True)
+
+            q1, q2 = st.columns(2)
+            q1.metric("Brightness", f"{quality['brightness']:.0f} / 255")
+            q2.metric("Sharpness", f"{quality['sharpness']:.0f}")
+            if quality["brightness"] < 55 or quality["brightness"] > 220:
+                st.warning("Pencahayaan kurang ideal. Coba ambil ulang foto dengan cahaya lebih merata.")
+            if quality["sharpness"] < 80:
+                st.warning("Foto terlihat kurang tajam. Stabilkan kamera dan fokuskan pada garis telapak.")
+
+            if st.button("Jalankan Prediksi AI", type="primary", width="stretch"):
+                with st.spinner("Memuat checkpoint ResNet50 dan menjalankan inferensi..."):
+                    predictor = get_predictor()
+                    result = predict_image(predictor, tensor_4ch, threshold)
+
+                name_by_id = {item["id"]: item["name_id"] for item in TARGET_PALM_FEATURES}
+                ranked = sorted(
+                    result.feature_probabilities.items(),
+                    key=lambda item: item[1],
+                    reverse=True,
+                )
+                top_id, top_score = ranked[0]
+
+                st.success("Prediksi selesai menggunakan checkpoint produksi.")
+                r1, r2, r3 = st.columns(3)
+                r1.metric("Prediksi terkuat", name_by_id[top_id])
+                r2.metric("Confidence tertinggi", f"{top_score * 100:.1f}%")
+                r3.metric("Fitur terdeteksi", str(len(result.detected_features)))
+
+                result_table = pd.DataFrame(
+                    [
+                        {
+                            "Fitur": name_by_id[feature_id],
+                            "Confidence (%)": probability * 100,
+                            "Terdeteksi": "Ya" if probability >= threshold else "Tidak",
+                        }
+                        for feature_id, probability in ranked
+                    ]
+                )
+                st.markdown("### Hasil 16 fitur")
+                st.dataframe(
+                    result_table.style.format({"Confidence (%)": "{:.1f}%"}),
+                    hide_index=True,
+                    width="stretch",
+                )
+
+                chart_data = result_table.head(8).set_index("Fitur")[["Confidence (%)"]]
+                st.bar_chart(chart_data, horizontal=True, color="#0d9488")
+                st.caption(
+                    "Hasil merupakan keluaran model multi-label untuk demonstrasi teknis, "
+                    "bukan diagnosis medis atau dasar keputusan penting."
+                )
+        except Exception as exc:
+            st.error("Gambar belum dapat diproses. Coba foto lain dengan telapak lebih jelas dan tegak.")
+            with st.expander("Detail teknis"):
+                st.code(f"{type(exc).__name__}: {exc}")
+
+elif page == "Executive Summary":
     st.subheader("Validation at a glance")
     c1, c2, c3, c4 = st.columns(4)
     with c1:
