@@ -61,6 +61,8 @@ class FakeStreamlit(types.ModuleType):
 
 
 def load_ui(st):
+    pandas = types.ModuleType('pandas')
+    pandas.DataFrame = lambda rows: rows
     runtime = types.ModuleType('model_runtime')
     runtime.PalmImageProcessor = object
     runtime.predict_image = lambda *args: None
@@ -68,7 +70,7 @@ def load_ui(st):
     crop.center_crop_preview = lambda data: (data, 0.0)
     pipeline = types.ModuleType('modules.palm_dl_pipeline')
     pipeline.TARGET_PALM_FEATURES = []
-    modules = {'streamlit': st, 'model_runtime': runtime,
+    modules = {'streamlit': st, 'pandas': pandas, 'model_runtime': runtime,
                'modules.crop_preview': crop, 'modules.palm_dl_pipeline': pipeline}
     path = Path(__file__).resolve().parents[1] / 'modules' / 'client_ui.py'
     with patch.dict(sys.modules, modules):
