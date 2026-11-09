@@ -1,0 +1,27 @@
+name: Validate Palmistry demo
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '19 2 * * 1'
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install application dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Syntax and report tests
+        run: |
+          python -m compileall -q app.py model_runtime.py modules tests
+          python -m unittest discover -s tests -v
+      - name: Check checkpoint integrity and model inference
+        run: python scripts/smoke_model.py
