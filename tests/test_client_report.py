@@ -25,10 +25,10 @@ class ClientReportTests(unittest.TestCase):
     def test_manual_observations_are_explicit_and_attributed(self):
         text = describe_manual_observations("kiri", {"kehidupan": "samar", "kepala": "jelas"})
         self.assertIn("diisi peninjau secara manual", text)
-        self.assertIn("Garis kehidupan: terlihat samar", text)
-        self.assertIn("Garis kepala: terlihat jelas", text)
+        self.assertIn("**Garis kehidupan.** Berdasarkan catatan peninjau, garis ini terlihat samar", text)
+        self.assertIn("**Garis kepala.** Berdasarkan catatan peninjau, garis ini terlihat jelas", text)
         self.assertNotIn("Garis asmara:", text)
-        self.assertIn("usia tidak disimpulkan", text)
+        self.assertIn("usia tidak disimpulkan otomatis", text)
 
     def test_unreviewed_not_assumed_absent(self):
         text = describe_manual_observations("kanan", {"nasib": "tidak_terlihat"})
@@ -39,6 +39,20 @@ class ClientReportTests(unittest.TestCase):
         text = make_report({"kiri": {"narrative": "HASIL MODEL", "manual_narrative": "CATATAN MANUAL"}})
         self.assertIn("HASIL MODEL", text)
         self.assertIn("CATATAN MANUAL", text)
+
+    def test_candidate_descriptions_do_not_assert_presence_or_age(self):
+        text = describe_screening("kiri", {"mark_island": 0.8, "mark_apollo_star": 0.7},
+                                  {"mark_island": "Tanda Pulau", "mark_apollo_star": "Bintang Apollo"})
+        self.assertIn("**Tanda Pulau.** Model menandai kategori ini sebagai kandidat", text)
+        self.assertIn("masih perlu diperiksa peninjau", text)
+        self.assertIn("belum dapat ditentukan", text)
+
+    def test_manual_detail_is_attributed_and_not_invented(self):
+        text = describe_manual_observations("kiri", {"kehidupan": "jelas"},
+                                            {"kehidupan": "Panjang dengan cabang yang perlu ditinjau."})
+        self.assertIn("Catatan tambahan peninjau untuk garis kehidupan", text)
+        self.assertIn("Panjang dengan cabang yang perlu ditinjau", text)
+        self.assertNotIn("usia 30", text)
 
 
 if __name__ == "__main__":

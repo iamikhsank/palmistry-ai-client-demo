@@ -55,6 +55,7 @@ def render_client_analysis(get_predictor):
         for side in ("kiri", "kanan"):
             for key in LINE_LABELS:
                 st.session_state.pop(f"manual_{side}_{key}", None)
+                st.session_state.pop(f"manual_note_{side}_{key}", None)
         st.session_state["client_signature"] = signature
     if st.button("Analisis foto", type="primary", width="stretch", disabled=not photos):
         results = {}
@@ -114,13 +115,19 @@ def render_client_analysis(get_predictor):
         for side in results:
             with st.expander(f"Catat garis utama tangan {side}"):
                 observations = {}
+                notes = {}
                 for key, label in LINE_LABELS.items():
                     observations[key] = st.selectbox(
                         label, list(options), format_func=options.get,
                         key=f"manual_{side}_{key}",
                     )
+                    notes[key] = st.text_area(
+                        f"Detail {label.lower()} (opsional)",
+                        placeholder="Contoh: panjang, arah, atau percabangan yang diperiksa peninjau",
+                        key=f"manual_note_{side}_{key}", max_chars=800,
+                    )
                 report_results[side]["manual_narrative"] = describe_manual_observations(
-                    side, observations
+                    side, observations, notes
                 )
                 st.markdown(report_results[side]["manual_narrative"])
         st.download_button("Unduh ringkasan", make_report(report_results),

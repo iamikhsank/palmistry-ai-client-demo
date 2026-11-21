@@ -56,6 +56,9 @@ class FakeStreamlit(types.ModuleType):
     def selectbox(self, label, choices, *, key, **kwargs):
         return self.session_state.setdefault(key, choices[0])
 
+    def text_area(self, label, *, key, **kwargs):
+        return self.session_state.setdefault(key, '')
+
     def download_button(self, label, data, **kwargs):
         self.exported = data
 
@@ -95,25 +98,29 @@ class ClientUIFlowTests(unittest.TestCase):
         photos = {'kiri': Photo(b'left'), 'kanan': Photo(b'right')}
         state = {'client_signature': signature(photos),
                  'client_results': {'kiri': result('MODEL KIRI'), 'kanan': result('MODEL KANAN')},
-                 'manual_kiri_kehidupan': 'samar', 'manual_kanan_kepala': 'jelas'}
+                 'manual_kiri_kehidupan': 'samar', 'manual_kanan_kepala': 'jelas',
+                 'manual_note_kiri_kehidupan': 'Catatan hasil pemeriksaan.'}
         st = FakeStreamlit(photos, state)
         load_ui(st).render_client_analysis(lambda: None)
         self.assertIn('MODEL KIRI', st.exported)
         self.assertIn('MODEL KANAN', st.exported)
-        self.assertIn('Garis kehidupan: terlihat samar', st.exported)
-        self.assertIn('Garis kepala: terlihat jelas', st.exported)
+        self.assertIn('garis ini terlihat samar', st.exported)
+        self.assertIn('garis ini terlihat jelas', st.exported)
         self.assertIn('diisi peninjau secara manual', st.exported)
+        self.assertIn('Catatan hasil pemeriksaan.', st.exported)
 
     def test_changed_photo_clears_prior_manual_and_model_results(self):
         old = {'kiri': Photo(b'old')}
         new = {'kiri': Photo(b'new')}
         state = {'client_signature': signature(old), 'client_results': {'kiri': result('OLD')},
-                 'manual_kiri_kehidupan': 'samar', 'manual_kanan_kepala': 'jelas'}
+                 'manual_kiri_kehidupan': 'samar', 'manual_kanan_kepala': 'jelas',
+                 'manual_note_kiri_kehidupan': 'Catatan foto lama'}
         st = FakeStreamlit(new, state)
         load_ui(st).render_client_analysis(lambda: None)
         self.assertNotIn('client_results', state)
         self.assertNotIn('manual_kiri_kehidupan', state)
         self.assertNotIn('manual_kanan_kepala', state)
+        self.assertNotIn('manual_note_kiri_kehidupan', state)
         self.assertIsNone(st.exported)
 
     def test_camera_photos_keep_same_session_results(self):
@@ -123,7 +130,7 @@ class ClientUIFlowTests(unittest.TestCase):
                  'manual_kiri_asmara': 'samar'}
         st = FakeStreamlit(photos, state, mode='Kamera')
         load_ui(st).render_client_analysis(lambda: None)
-        self.assertIn('Garis asmara: terlihat samar', st.exported)
+        self.assertIn('garis ini terlihat samar', st.exported)
         self.assertEqual(state['manual_kiri_asmara'], 'samar')
 
 
