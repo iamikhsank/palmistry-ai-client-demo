@@ -9,7 +9,7 @@ class ClientReportTests(unittest.TestCase):
                                   {"a": "A", "b": "B", "c": "C"}, 0.5)
         self.assertIn("B, A", text)
         self.assertNotIn("C,", text)
-        self.assertIn("bukan kepastian", text)
+        self.assertIn("bukan kepastian bentuk", text)
         self.assertIn("belum dapat ditentukan", text)
 
     def test_empty_screen_is_not_negative_diagnosis(self):
@@ -43,9 +43,17 @@ class ClientReportTests(unittest.TestCase):
     def test_candidate_descriptions_do_not_assert_presence_or_age(self):
         text = describe_screening("kiri", {"mark_island": 0.8, "mark_apollo_star": 0.7},
                                   {"mark_island": "Tanda Pulau", "mark_apollo_star": "Bintang Apollo"})
-        self.assertIn("**Tanda Pulau.** Model menandai kategori ini sebagai kandidat", text)
-        self.assertIn("masih perlu diperiksa peninjau", text)
+        self.assertIn("**Tanda Pulau.** Hasil model menandai kategori ini", text)
+        self.assertIn("bukan kepastian bentuk atau lokasi", text)
         self.assertIn("belum dapat ditentukan", text)
+
+    def test_every_known_feature_has_distinct_guidance(self):
+        from modules.client_report import FEATURE_DETAILS, FEATURE_EXPLANATIONS
+        self.assertEqual(len(FEATURE_EXPLANATIONS), 16)
+        self.assertEqual(set(FEATURE_EXPLANATIONS), set(FEATURE_DETAILS))
+        text = describe_screening("kanan", {"line_marriage": 0.8}, {"line_marriage": "Garis Hubungan"})
+        self.assertIn("tidak menentukan jumlah hubungan", text)
+        self.assertNotIn("usia 30 tahun", text)
 
     def test_manual_detail_is_attributed_and_not_invented(self):
         text = describe_manual_observations("kiri", {"kehidupan": "jelas"},

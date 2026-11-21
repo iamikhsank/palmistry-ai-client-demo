@@ -37,6 +37,26 @@ FEATURE_EXPLANATIONS = {
     "discontinuity_line_break": "pola terputus atau diskontinuitas pada garis",
 }
 
+# Keterangan pola sebagai panduan membaca kategori, bukan pengukuran foto.
+FEATURE_DETAILS = {
+    "mark_apollo_star": "Bentuk bintang dalam panduan digambarkan melalui beberapa garis yang saling berpotongan. Apollo merupakan nama area pada peta telapak di bawah jari manis.",
+    "mark_venus_square": "Bentuk kotak dalam panduan tersusun dari garis yang membatasi sebuah ruang. Venus adalah sebutan untuk area di sekitar pangkal ibu jari.",
+    "mark_jupiter_star": "Bentuk bintang dalam panduan terdiri atas beberapa garis yang bertemu atau berpotongan. Yupiter merupakan nama area pada peta telapak di bawah jari telunjuk.",
+    "branch_terminal_fork": "Dalam panduan, bentuk garpu menggambarkan satu garis yang terbagi menjadi dua atau lebih bagian pada ujungnya. Bentuk, arah, dan panjang cabang perlu dibaca dari foto secara terpisah.",
+    "mark_obstacle_bar": "Dalam panduan, bar mark digambarkan sebagai garis yang melintang terhadap garis lain. Hubungan antara garis tersebut dan garis utama perlu ditentukan melalui peninjauan foto.",
+    "mark_venus_grille": "Pola kisi-kisi dalam panduan terbentuk dari beberapa garis yang saling bersilang. Venus adalah sebutan untuk area di sekitar pangkal ibu jari.",
+    "mark_island": "Pola pulau pada panduan berbentuk ruang tertutup menyerupai oval yang mengikuti bagian garis. Kategori ini tidak menunjukkan panjang atau posisi pulau pada foto.",
+    "line_influence_mars": "Garis pengaruh Mars adalah nama kategori yang digunakan dalam referensi pembacaan telapak. Bentuk dan hubungannya dengan garis lain bergantung pada hasil pengamatan foto.",
+    "line_mars_sister": "Dalam panduan, garis saudara Mars dijelaskan sebagai garis pendamping yang berkaitan dengan area garis kehidupan. Panjang dan hubungan kedua garis tidak diukur oleh kategori ini.",
+    "branch_ascending_jupiter": "Dalam panduan, cabang naik digambarkan bergerak menuju area Yupiter di bawah telunjuk. Titik awal dan arah cabang perlu ditentukan secara terpisah.",
+    "line_rascettes_wrist": "Rascettes merupakan sebutan dalam referensi untuk garis pada pergelangan tangan. Jumlah dan bentuk masing-masing garis tidak ditentukan oleh kategori ini.",
+    "pattern_chained_origin": "Pola berantai dalam panduan menggambarkan rangkaian bentuk kecil yang saling terhubung pada suatu bagian garis. Kategori ini tidak menentukan panjang rangkaian.",
+    "line_marriage": "Garis hubungan atau pernikahan adalah nama kategori dalam referensi tradisional. Hasil kategori ini tidak menentukan jumlah hubungan atau kejadian dalam kehidupan seseorang.",
+    "feathering_downward": "Dalam panduan, pola ini digambarkan sebagai cabang-cabang halus dengan arah menurun dari garis. Jumlah dan posisi cabang tidak dihitung oleh kategori ini.",
+    "fork_origin_separation": "Dalam panduan, pola garpu pangkal menggambarkan percabangan pada awal sebuah garis. Kategori ini tidak menentukan jarak pemisahan atau garis utama yang terlibat.",
+    "discontinuity_line_break": "Diskontinuitas dalam panduan merujuk pada bagian garis yang tampak terpisah atau terputus. Kategori ini tidak menentukan posisi atau durasi suatu peristiwa.",
+}
+
 
 def describe_manual_observations(side, observations, notes=None):
     """Describe explicit human entries, never infer observations from model scores."""
@@ -70,27 +90,26 @@ def describe_screening(side, probabilities, names, threshold=0.5):
     if selected:
         candidates = ", ".join(names[fid] for fid, _ in selected[:5])
         lines.append(
-            "Model menandai beberapa pola untuk ditinjau: " + candidates + ". "
-            "Ini adalah kandidat berdasarkan skor model, bukan kepastian bahwa pola tersebut terlihat."
+            "Hasil analisis model menandai kategori pola berikut: " + candidates + "."
         )
-        lines.append("**Uraian kandidat pola**")
+        lines.append("**Uraian hasil analisis**")
         for fid, _ in selected:
             description = FEATURE_EXPLANATIONS.get(fid)
             if description:
                 lines.append(
-                    f"**{names[fid]}.** Model menandai kategori ini sebagai kandidat. "
+                    f"**{names[fid]}.** Hasil model menandai kategori ini. "
                     f"Dalam panduan visual, kategori tersebut mengacu pada {description}. "
-                    "Keberadaan dan lokasinya pada foto masih perlu diperiksa peninjau."
+                    f"{FEATURE_DETAILS.get(fid, '')}"
                 )
             else:
-                lines.append(f"**{names[fid]}.** Kategori ini ditandai sebagai kandidat dan perlu ditinjau pada foto.")
+                lines.append(f"**{names[fid]}.** Hasil model menandai kategori pola ini.")
     else:
         lines.append("Tidak ada kandidat yang melampaui ambang penyaringan. "
                      "Ini tidak membuktikan bahwa pola tidak ada.")
     lines.append(
-        "Garis kehidupan, kepala, asmara, dan nasib: panjang, arah, ketebalan, "
-        "percabangan, lokasi, serta perkiraan titik usia belum dapat ditentukan "
-        "oleh model ini. Diperlukan pemeriksaan manual atau model yang divalidasi."
+        "Catatan hasil: kategori di atas merupakan keluaran model, bukan kepastian bentuk "
+        "atau lokasi pada foto. Panjang, arah, ketebalan, percabangan dan titik usia "
+        "pada garis utama belum dapat ditentukan otomatis; catatan peninjau ditampilkan terpisah."
     )
     return "\n\n".join(lines)
 
