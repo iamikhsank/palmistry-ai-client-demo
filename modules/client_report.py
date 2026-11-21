@@ -18,6 +18,50 @@ OBSERVATION_TEXT = {
     "tidak_terlihat": "belum terlihat pada foto",
 }
 
+DETAIL_CHOICES = {
+    "length": ("Panjang", {"unknown": "Belum dicatat", "long": "Panjang", "short": "Pendek"}),
+    "direction": ("Arah", {"unknown": "Belum dicatat", "up": "Cenderung naik", "down": "Cenderung turun", "curved": "Melengkung", "straight": "Cenderung lurus"}),
+    "continuity": ("Kondisi garis", {"unknown": "Belum dicatat", "continuous": "Bersambung", "broken": "Terputus"}),
+    "branches": ("Percabangan", {"unknown": "Belum dicatat", "present": "Ada percabangan", "none": "Tidak tampak percabangan"}),
+}
+
+
+def make_copyable_report(records):
+    """Build a copyable report from explicit per-hand observations and model labels.
+
+    Unknown attributes remain unknown; global model labels are never mapped onto
+    a specific major line or presented as human-reviewed observations.
+    """
+    paragraphs = ["KETERANGAN TELAPAK TANGAN"]
+    for side in ("kiri", "kanan"):
+        if side not in records:
+            continue
+        data = records[side]
+        paragraphs.append(f"TANGAN {side.upper()}")
+        paragraphs.append("Keterangan garis utama berikut berasal dari catatan peninjau.")
+        for key, title in LINE_LABELS.items():
+            values = []
+            visibility = data.get("observations", {}).get(key)
+            if visibility in OBSERVATION_TEXT:
+                values.append(OBSERVATION_TEXT[visibility])
+            for field, (_, choices) in DETAIL_CHOICES.items():
+                value = data.get("details", {}).get(key, {}).get(field, "unknown")
+                if value != "unknown" and value in choices:
+                    values.append(choices[value].lower())
+            note = data.get("notes", {}).get(key, "").strip()
+            if values or note:
+                sentence = f"{title}: " + (", ".join(values) + "." if values else "")
+                if note:
+                    sentence += (" " if values else "") + note
+            else:
+                sentence = f"{title}: belum ada keterangan yang dicatat."
+            paragraphs.append(sentence)
+        selected = data.get("model_candidates", [])
+        paragraphs.append("Kategori pola dari model (belum dipetakan ke garis utama): " +
+                          (", ".join(selected) if selected else "tidak ada yang melewati ambang") + ".")
+    paragraphs.append("Catatan: hasil model berupa kandidat pola dan bukan pengukuran lokasi atau usia garis.")
+    return "\n\n".join(paragraphs) + "\n"
+
 FEATURE_EXPLANATIONS = {
     "mark_apollo_star": "tanda berbentuk bintang yang dalam referensi berkaitan dengan area Apollo",
     "mark_venus_square": "pola menyerupai kotak yang dalam referensi berkaitan dengan area Venus",

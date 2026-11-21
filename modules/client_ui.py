@@ -7,7 +7,8 @@ import streamlit as st
 
 from model_runtime import PalmImageProcessor, predict_image
 from modules.client_report import (
-    LINE_LABELS, describe_manual_observations, describe_screening, make_report,
+    DETAIL_CHOICES, LINE_LABELS, describe_manual_observations, describe_screening,
+    make_copyable_report, make_report,
 )
 from modules.crop_preview import center_crop_preview
 from modules.palm_dl_pipeline import TARGET_PALM_FEATURES
@@ -56,6 +57,8 @@ def render_client_analysis(get_predictor):
             for key in LINE_LABELS:
                 st.session_state.pop(f"manual_{side}_{key}", None)
                 st.session_state.pop(f"manual_note_{side}_{key}", None)
+                for field in DETAIL_CHOICES:
+                    st.session_state.pop(f"manual_detail_{side}_{key}_{field}", None)
         st.session_state["client_signature"] = signature
     if st.button("Analisis foto", type="primary", width="stretch", disabled=not photos):
         results = {}
@@ -112,15 +115,25 @@ def render_client_analysis(get_predictor):
             "samar": "Terlihat samar",
             "tidak_terlihat": "Belum terlihat pada foto",
         }
+        copy_records = {}
+        names = {f["id"]: f["name_id"] for f in TARGET_PALM_FEATURES}
         for side in results:
             with st.expander(f"Catat garis utama tangan {side}"):
                 observations = {}
                 notes = {}
+                details = {}
                 for key, label in LINE_LABELS.items():
                     observations[key] = st.selectbox(
                         label, list(options), format_func=options.get,
                         key=f"manual_{side}_{key}",
                     )
+                    details[key] = {}
+                    for field, (field_label, choices) in DETAIL_CHOICES.items():
+                        details[key][field] = st.selectbox(
+                            f"{field_label} — {label.lower()}", list(choices),
+                            format_func=choices.get,
+                            key=f"manual_detail_{side}_{key}_{field}",
+                        )
                     notes[key] = st.text_area(
                         f"Detail {label.lower()} (opsional)",
                         placeholder="Contoh: panjang, arah, atau percabangan yang diperiksa peninjau",
@@ -130,6 +143,21 @@ def render_client_analysis(get_predictor):
                     side, observations, notes
                 )
                 st.markdown(report_results[side]["manual_narrative"])
-        st.download_button("Unduh ringkasan", make_report(report_results),
+                selected = sorted(
+                    ((fid, float(score)) for fid, score in results[side]["scores"].items()
+                     if fid in names and float(score) >= threshold),
+                    key=lambda item: item[1], reverse=True,
+                )
+                copy_records[side] = {
+                    "observations": observations, "details": details, "notes": notes,
+                    "model_candidates": [names[fid] for fid, _ in selected],
+                }
+        copy_text = make_copyable_report(copy_records)
+        st.markdown("### Keterangan untuk disalin")
+        st.caption("Gunakan tombol salin di sudut kotak. Detail garis berasal dari catatan peninjau.")
+        st.code(copy_text, language=None)
+        st.download_button("Unduh keterangan untuk AI", copy_text,
+                           file_name="keterangan_garis.txt", mime="text/plain")
+        st.download_button("Unduh ringkasan", make_report(report_results) + "\n" + copy_text,
                            file_name="ringkasan_telapak_tangan.md", mime="text/markdown")
         st.caption("Palmistry adalah interpretasi tradisional, bukan diagnosis atau dasar keputusan penting.")

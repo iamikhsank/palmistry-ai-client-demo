@@ -1,9 +1,30 @@
 import unittest
 
-from modules.client_report import describe_manual_observations, describe_screening, make_report
+from modules.client_report import describe_manual_observations, describe_screening, make_copyable_report, make_report
 
 
 class ClientReportTests(unittest.TestCase):
+    def test_copyable_report_separates_hands_and_manual_from_model(self):
+        report = make_copyable_report({
+            "kiri": {"observations": {"kehidupan": "jelas"},
+                     "details": {"kehidupan": {"length": "long", "branches": "present"}},
+                     "notes": {"kehidupan": "Cabang terlihat di bagian atas."},
+                     "model_candidates": ["Tanda Pulau"]},
+            "kanan": {"observations": {"kepala": "samar"}},
+        })
+        self.assertIn("TANGAN KIRI", report)
+        self.assertIn("Garis kehidupan: terlihat jelas, panjang, ada percabangan.", report)
+        self.assertIn("Cabang terlihat di bagian atas", report)
+        self.assertIn("TANGAN KANAN", report)
+        self.assertIn("Garis kepala: terlihat samar", report)
+        self.assertIn("belum dipetakan ke garis utama", report)
+        self.assertNotIn("usia 30", report)
+
+    def test_copyable_report_does_not_create_unreviewed_measurements(self):
+        report = make_copyable_report({"kiri": {"model_candidates": ["Tanda Pulau"]}})
+        self.assertIn("Garis kehidupan: belum ada keterangan yang dicatat", report)
+        self.assertNotIn("Garis kehidupan: panjang", report)
+
     def test_candidates_are_uncertain_and_ranked(self):
         text = describe_screening("kiri", {"a": 0.6, "b": 0.9, "c": 0.2},
                                   {"a": "A", "b": "B", "c": "C"}, 0.5)

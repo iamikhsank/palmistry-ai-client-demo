@@ -41,6 +41,7 @@ class FakeStreamlit(types.ModuleType):
     def error(self, *args, **kwargs): pass
     def image(self, *args, **kwargs): pass
     def dataframe(self, *args, **kwargs): pass
+    def code(self, *args, **kwargs): pass
     def radio(self, *args, **kwargs): return self.mode
     def slider(self, *args, **kwargs): return 0.5
     def button(self, *args, **kwargs): return False
