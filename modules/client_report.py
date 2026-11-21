@@ -5,6 +5,8 @@ No client examples, identifiers, or private palm images are included.
 """
 from __future__ import annotations
 
+import math
+
 
 LINE_LABELS = {
     "kehidupan": "Garis kehidupan",
@@ -27,18 +29,45 @@ DETAIL_CHOICES = {
 
 
 def make_copyable_report(records):
-    """Build a copyable report from explicit per-hand observations and model labels.
-
-    Unknown attributes remain unknown; global model labels are never mapped onto
-    a specific major line or presented as human-reviewed observations.
-    """
+    """Describe model labels without inventing locations or line measurements."""
     paragraphs = ["KETERANGAN TELAPAK TANGAN"]
     for side in ("kiri", "kanan"):
         if side not in records:
             continue
         data = records[side]
         paragraphs.append(f"TANGAN {side.upper()}")
-        paragraphs.append("Keterangan garis utama berikut berasal dari catatan peninjau.")
+        names = data.get("model_names", {})
+        threshold = data.get("threshold", 0.5)
+        selected = []
+        for fid, raw_score in data.get("model_probabilities", {}).items():
+            try:
+                score = float(raw_score)
+            except (TypeError, ValueError):
+                continue
+            if fid in names and math.isfinite(score) and score >= threshold:
+                selected.append((fid, score))
+        selected.sort(key=lambda item: item[1], reverse=True)
+        if selected:
+            labels = [names[fid] for fid, _ in selected]
+            paragraphs.append(
+                f"Pada foto tangan {side}, model menandai {len(labels)} kategori pola: "
+                + ", ".join(labels) + ". Berikut keterangan setiap kategori berdasarkan referensi pola telapak."
+            )
+            for fid, _ in selected:
+                description = FEATURE_EXPLANATIONS.get(fid)
+                if description:
+                    detail = FEATURE_DETAILS.get(fid, "").split(". ")[0].rstrip(".")
+                    text = f"{names[fid]}: dalam referensi, kategori ini mengacu pada {description}."
+                    if detail:
+                        text += f" {detail}."
+                    paragraphs.append(text)
+                else:
+                    paragraphs.append(f"{names[fid]}: kategori pola ini ditandai oleh model.")
+        elif data.get("model_candidates"):
+            paragraphs.append("Kategori pola yang ditandai model: " + ", ".join(data["model_candidates"]) + ".")
+        else:
+            paragraphs.append("Tidak ada kategori pola yang mencapai ambang model pada foto ini.")
+        manual = []
         for key, title in LINE_LABELS.items():
             values = []
             visibility = data.get("observations", {}).get(key)
@@ -53,13 +82,12 @@ def make_copyable_report(records):
                 sentence = f"{title}: " + (", ".join(values) + "." if values else "")
                 if note:
                     sentence += (" " if values else "") + note
-            else:
-                sentence = f"{title}: belum ada keterangan yang dicatat."
-            paragraphs.append(sentence)
-        selected = data.get("model_candidates", [])
-        paragraphs.append("Kategori pola dari model (belum dipetakan ke garis utama): " +
-                          (", ".join(selected) if selected else "tidak ada yang melewati ambang") + ".")
-    paragraphs.append("Catatan: hasil model berupa kandidat pola dan bukan pengukuran lokasi atau usia garis.")
+                manual.append(sentence)
+        if manual:
+            paragraphs.append("CATATAN TAMBAHAN PENINJAU")
+            paragraphs.extend(manual)
+    paragraphs.append("Catatan: kategori merupakan hasil model, bukan pemetaan garis utama. "
+                      "Posisi, panjang, dan usia garis belum diukur.")
     return "\n\n".join(paragraphs) + "\n"
 
 FEATURE_EXPLANATIONS = {

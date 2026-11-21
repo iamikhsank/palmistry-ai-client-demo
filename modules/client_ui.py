@@ -18,8 +18,8 @@ def render_client_analysis(get_predictor):
     st.subheader("Analisis dua telapak tangan")
     st.write("Unggah atau ambil foto tangan kiri dan kanan dalam satu sesi. "
              "Letakkan telapak terbuka dan tegak di tengah foto, dengan cahaya merata.")
-    st.info("Versi awal: model menyaring kemungkinan 16 pola, belum membaca detail "
-            "garis utama atau mengukur usia. Semua hasil perlu ditinjau.")
+    st.info("Model versi pertama mengenali 16 kategori pola; posisi, panjang, "
+            "dan usia garis utama belum diukur.")
     mode = st.radio("Sumber foto", ["Unggah gambar", "Kamera"], horizontal=True)
     photos = {}
     columns = st.columns(2)
@@ -91,8 +91,20 @@ def render_client_analysis(get_predictor):
     results = st.session_state.get("client_results", {})
     if results:
         report_results = {side: dict(item) for side, item in results.items()}
+        names = {f["id"]: f["name_id"] for f in TARGET_PALM_FEATURES}
+        auto_records = {
+            side: {"model_probabilities": item["scores"], "model_names": names,
+                   "threshold": threshold}
+            for side, item in results.items()
+        }
+        auto_text = make_copyable_report(auto_records)
+        st.markdown("### Narasi hasil analisis")
+        st.caption("Narasi otomatis untuk disalin; tidak memerlukan pengisian manual.")
+        st.code(auto_text, language=None)
+        st.download_button("Unduh narasi otomatis", auto_text,
+                           file_name="narasi_telapak_tangan.txt", mime="text/plain")
         st.markdown("### Ringkasan hasil")
-        st.caption("Hasil berikut adalah penyaringan awal, bukan laporan pembacaan final.")
+        st.caption("Rincian kategori pola yang ditandai model.")
         for side, item in results.items():
             st.markdown(item["narrative"])
             q = item["quality"]
@@ -150,14 +162,15 @@ def render_client_analysis(get_predictor):
                 )
                 copy_records[side] = {
                     "observations": observations, "details": details, "notes": notes,
-                    "model_candidates": [names[fid] for fid, _ in selected],
+                    "model_probabilities": results[side]["scores"], "model_names": names,
+                    "threshold": threshold,
                 }
         copy_text = make_copyable_report(copy_records)
-        st.markdown("### Keterangan untuk disalin")
-        st.caption("Gunakan tombol salin di sudut kotak. Detail garis berasal dari catatan peninjau.")
-        st.code(copy_text, language=None)
-        st.download_button("Unduh keterangan untuk AI", copy_text,
-                           file_name="keterangan_garis.txt", mime="text/plain")
+        if copy_text != auto_text:
+            st.markdown("### Narasi dengan catatan tambahan")
+            st.code(copy_text, language=None)
+            st.download_button("Unduh narasi dengan catatan", copy_text,
+                               file_name="keterangan_garis.txt", mime="text/plain")
         st.download_button("Unduh ringkasan", make_report(report_results) + "\n" + copy_text,
                            file_name="ringkasan_telapak_tangan.md", mime="text/markdown")
         st.caption("Palmistry adalah interpretasi tradisional, bukan diagnosis atau dasar keputusan penting.")

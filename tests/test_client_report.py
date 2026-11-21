@@ -17,13 +17,34 @@ class ClientReportTests(unittest.TestCase):
         self.assertIn("Cabang terlihat di bagian atas", report)
         self.assertIn("TANGAN KANAN", report)
         self.assertIn("Garis kepala: terlihat samar", report)
-        self.assertIn("belum dipetakan ke garis utama", report)
+        self.assertIn("bukan pemetaan garis utama", report)
         self.assertNotIn("usia 30", report)
 
     def test_copyable_report_does_not_create_unreviewed_measurements(self):
         report = make_copyable_report({"kiri": {"model_candidates": ["Tanda Pulau"]}})
-        self.assertIn("Garis kehidupan: belum ada keterangan yang dicatat", report)
+        self.assertNotIn("belum ada keterangan yang dicatat", report)
+        self.assertIn("Tanda Pulau", report)
         self.assertNotIn("Garis kehidupan: panjang", report)
+
+    def test_automatic_narrative_uses_each_hand_and_threshold(self):
+        names = {"mark_island": "Tanda Pulau", "branch_terminal_fork": "Cabang Garpu"}
+        report = make_copyable_report({
+            "kiri": {"model_probabilities": {"mark_island": 0.9, "branch_terminal_fork": 0.1}, "model_names": names},
+            "kanan": {"model_probabilities": {"mark_island": float('nan'), "branch_terminal_fork": 0.8}, "model_names": names},
+        })
+        left, right = report.split("TANGAN KANAN")
+        self.assertIn("Tanda Pulau", left)
+        self.assertNotIn("Cabang Garpu", left)
+        self.assertIn("Cabang Garpu", right)
+        self.assertNotIn("Tanda Pulau", right)
+        self.assertNotIn("belum ada keterangan yang dicatat", report)
+        self.assertNotIn("usia 30", report)
+
+    def test_empty_selection_is_not_invented(self):
+        report = make_copyable_report({"kiri": {"model_probabilities": {"mark_island": 0.1},
+            "model_names": {"mark_island": "Tanda Pulau"}}})
+        self.assertIn("Tidak ada kategori pola yang mencapai ambang", report)
+        self.assertNotIn("Tanda Pulau", report)
 
     def test_candidates_are_uncertain_and_ranked(self):
         text = describe_screening("kiri", {"a": 0.6, "b": 0.9, "c": 0.2},

@@ -31,6 +31,7 @@ class FakeStreamlit(types.ModuleType):
         self.session_state = session
         self.mode = mode
         self.exported = None
+        self.copied = []
 
     def subheader(self, *args, **kwargs): pass
     def write(self, *args, **kwargs): pass
@@ -41,7 +42,7 @@ class FakeStreamlit(types.ModuleType):
     def error(self, *args, **kwargs): pass
     def image(self, *args, **kwargs): pass
     def dataframe(self, *args, **kwargs): pass
-    def code(self, *args, **kwargs): pass
+    def code(self, text, **kwargs): self.copied.append(text)
     def radio(self, *args, **kwargs): return self.mode
     def slider(self, *args, **kwargs): return 0.5
     def button(self, *args, **kwargs): return False
@@ -95,6 +96,17 @@ def result(narrative):
 
 
 class ClientUIFlowTests(unittest.TestCase):
+    def test_automatic_report_is_available_without_manual_input(self):
+        photos = {'kiri': Photo(b'left')}
+        state = {'client_signature': signature(photos),
+                 'client_results': {'kiri': result('MODEL KIRI')}}
+        st = FakeStreamlit(photos, state)
+        load_ui(st).render_client_analysis(lambda: None)
+        self.assertTrue(st.copied)
+        self.assertIn('TANGAN KIRI', st.copied[0])
+        self.assertNotIn('belum ada keterangan yang dicatat', st.copied[0])
+        self.assertNotIn('CATATAN TAMBAHAN PENINJAU', st.copied[0])
+
     def test_two_hands_export_keeps_manual_and_model_text(self):
         photos = {'kiri': Photo(b'left'), 'kanan': Photo(b'right')}
         state = {'client_signature': signature(photos),
