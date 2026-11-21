@@ -11,6 +11,7 @@ from modules.client_report import (
     make_copyable_report, make_report,
 )
 from modules.crop_preview import center_crop_preview
+from modules.hand_validation import HandNotDetected, HandDetectorUnavailable
 from modules.palm_dl_pipeline import TARGET_PALM_FEATURES
 
 
@@ -77,6 +78,10 @@ def render_client_analysis(get_predictor):
                         prediction.feature_probabilities, names, threshold),
                         "scores": prediction.feature_probabilities,
                         "preview": preview, "ridge": ridge, "quality": quality}
+                except HandNotDetected as exc:
+                    errors.append(f"Tangan {side}: {exc}")
+                except HandDetectorUnavailable:
+                    errors.append(f"Tangan {side}: pemeriksaan tangan sedang tidak tersedia. Coba lagi nanti.")
                 except Exception as exc:
                     errors.append(f"Tangan {side}: {type(exc).__name__} — foto tidak dapat diproses.")
             st.session_state["client_results"] = results
