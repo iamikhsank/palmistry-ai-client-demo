@@ -7,6 +7,7 @@ import streamlit as st
 
 from model_runtime import PalmImageProcessor, load_production_predictor, predict_image
 from modules.palm_dl_pipeline import TARGET_PALM_FEATURES
+from modules.client_ui import render_client_analysis
 
 
 BASE_DIR = Path(__file__).parent
@@ -78,7 +79,7 @@ with st.sidebar:
     st.divider()
     page = st.radio(
         "Navigasi",
-        ["Live Prediction", "Executive Summary", "Model Performance", "Inference Evidence", "Methodology"],
+        ["Analisis Dua Tangan", "Live Prediction", "Executive Summary", "Model Performance", "Inference Evidence", "Methodology"],
         label_visibility="collapsed",
     )
     st.divider()
@@ -99,7 +100,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-if page == "Live Prediction":
+if page == "Analisis Dua Tangan":
+    render_client_analysis(get_predictor)
+elif page == "Live Prediction":
     st.subheader("Coba model dengan foto telapak tangan")
     st.markdown(
         "Ambil foto langsung dari kamera atau unggah gambar. Posisikan **telapak terbuka, "
