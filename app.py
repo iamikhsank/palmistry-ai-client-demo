@@ -8,6 +8,7 @@ import streamlit as st
 from model_runtime import PalmImageProcessor, load_production_predictor, predict_image
 from modules.palm_dl_pipeline import TARGET_PALM_FEATURES
 from modules.client_ui import render_client_analysis
+from modules.hand_validation import HandNotDetected, HandDetectorUnavailable
 
 
 BASE_DIR = Path(__file__).parent
@@ -195,6 +196,10 @@ elif page == "Live Prediction":
                     "Hasil merupakan keluaran model multi-label untuk demonstrasi teknis, "
                     "bukan diagnosis medis atau dasar keputusan penting."
                 )
+        except HandNotDetected as exc:
+            st.error(str(exc))
+        except HandDetectorUnavailable:
+            st.error("Pemeriksaan tangan sedang tidak tersedia. Coba lagi nanti.")
         except Exception as exc:
             st.error("Gambar belum dapat diproses. Coba foto lain dengan telapak lebih jelas dan tegak.")
             with st.expander("Detail teknis"):

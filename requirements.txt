@@ -1,7 +1,8 @@
 streamlit>=1.39,<2
 pandas>=2.1,<3
 plotly>=5.20,<7
-numpy>=1.26,<3
+numpy>=1.26,<2
+mediapipe==0.10.21
 pillow>=10,<13
 opencv-python-headless>=4.9,<5
 scipy>=1.11,<2

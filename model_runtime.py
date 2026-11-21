@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 from scipy import ndimage
+from modules.hand_validation import validate_hand_image
 
 
 BASE_DIR = Path(__file__).parent
@@ -122,7 +124,13 @@ class PalmImageProcessor:
         return ((max_response - minimum) / (maximum - minimum) * 255.0).astype(np.uint8)
 
     def prepare(self, uploaded: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, float]]:
-        raw_bgr = self.decode(uploaded)
+        if hasattr(uploaded, "getvalue"):
+            image_bytes = uploaded.getvalue()
+        else:
+            uploaded.seek(0)
+            image_bytes = uploaded.read()
+        validate_hand_image(image_bytes)
+        raw_bgr = self.decode(io.BytesIO(image_bytes))
         aligned = self.align_center(raw_bgr)
         clahe_bgr = self.enhance(aligned)
         ridge = self.ridge_map(clahe_bgr)
