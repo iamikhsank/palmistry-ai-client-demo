@@ -8,6 +8,25 @@ from __future__ import annotations
 import math
 
 
+def _valid_scores(probabilities, names, threshold):
+    """Return only known, finite probabilities in [0, 1]."""
+    try:
+        threshold = float(threshold)
+    except (TypeError, ValueError):
+        raise ValueError("Ambang model tidak valid.") from None
+    if not math.isfinite(threshold) or not 0 <= threshold <= 1:
+        raise ValueError("Ambang model harus berada antara 0 dan 1.")
+    selected = []
+    for fid, raw_score in (probabilities or {}).items():
+        try:
+            score = float(raw_score)
+        except (TypeError, ValueError):
+            continue
+        if fid in names and math.isfinite(score) and 0 <= score <= 1 and score >= threshold:
+            selected.append((fid, score))
+    return sorted(selected, key=lambda item: item[1], reverse=True)
+
+
 LINE_LABELS = {
     "kehidupan": "Garis kehidupan",
     "kepala": "Garis kepala",
@@ -38,15 +57,7 @@ def make_copyable_report(records):
         paragraphs.append(f"TANGAN {side.upper()}")
         names = data.get("model_names", {})
         threshold = data.get("threshold", 0.5)
-        selected = []
-        for fid, raw_score in data.get("model_probabilities", {}).items():
-            try:
-                score = float(raw_score)
-            except (TypeError, ValueError):
-                continue
-            if fid in names and math.isfinite(score) and score >= threshold:
-                selected.append((fid, score))
-        selected.sort(key=lambda item: item[1], reverse=True)
+        selected = _valid_scores(data.get("model_probabilities", {}), names, threshold)
         if selected:
             labels = [names[fid] for fid, _ in selected]
             paragraphs.append(
@@ -153,11 +164,7 @@ def describe_manual_observations(side, observations, notes=None):
 
 def describe_screening(side, probabilities, names, threshold=0.5):
     """Return cautious, reviewable paragraphs from model scores alone."""
-    selected = sorted(
-        ((fid, float(score)) for fid, score in probabilities.items()
-         if fid in names and float(score) >= threshold),
-        key=lambda item: item[1], reverse=True,
-    )
+    selected = _valid_scores(probabilities, names, threshold)
     lines = [f"### Tangan {side}"]
     if selected:
         candidates = ", ".join(names[fid] for fid, _ in selected[:5])
