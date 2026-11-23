@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 from scipy import ndimage
-from modules.hand_validation import validate_hand_image
+from modules.hand_validation import estimate_sharpness, validate_hand_image
 
 
 BASE_DIR = Path(__file__).parent
@@ -140,6 +140,7 @@ class PalmImageProcessor:
         quality = {
             "brightness": float(gray.mean()),
             "sharpness": float(cv2.Laplacian(gray, cv2.CV_64F).var()),
+            "raw_sharpness": estimate_sharpness(image_bytes),
         }
         return tensor_4ch, cv2.cvtColor(clahe_bgr, cv2.COLOR_BGR2RGB), ridge, quality
 
