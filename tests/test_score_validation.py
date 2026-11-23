@@ -27,6 +27,25 @@ class ScoreValidationTests(unittest.TestCase):
     def test_missing_scores_are_handled(self):
         self.assertIn("Tidak ada kandidat", describe_screening("kanan", None, {}))
 
+    def test_grouped_report_keeps_each_hand_separate(self):
+        names = {"mark_island": "Tanda Pulau", "branch_terminal_fork": "Cabang Garpu"}
+        text = make_copyable_report({
+            "kiri": {"model_names": names, "model_probabilities": {"mark_island": .8}},
+            "kanan": {"model_names": names, "model_probabilities": {"branch_terminal_fork": .9}},
+        })
+        left, right = text.split("TANGAN KANAN")
+        self.assertIn("Pola pada garis", left)
+        self.assertIn("Tanda Pulau", left)
+        self.assertNotIn("Cabang Garpu", left)
+        self.assertIn("Pola cabang dan kesinambungan", right)
+        self.assertNotIn("Tanda Pulau", right)
+        self.assertIn("bukan pengukuran", text)
+
+    def test_unknown_feature_name_is_preserved(self):
+        text = make_copyable_report({"kiri": {"model_names": {"other": "Pola lain"},
+                                                "model_probabilities": {"other": .8}}})
+        self.assertIn("Kategori lainnya yang ditandai: Pola lain", text)
+
 
 if __name__ == "__main__":
     unittest.main()
