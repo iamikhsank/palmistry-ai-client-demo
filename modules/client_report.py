@@ -78,10 +78,17 @@ def make_copyable_report(records):
             other = [names[fid] for fid, _ in selected if fid not in covered]
             if other:
                 paragraphs.append("Kategori lainnya yang ditandai: " + ", ".join(other) + ".")
+            top = [names[fid] for fid, _ in selected[:3]]
+            paragraphs.append(
+                f"Ringkasan tangan {side}: kategori dengan skor model tertinggi adalah "
+                + ", ".join(top) + ". Urutan ini menunjukkan skor model, bukan kepastian "
+                "bahwa pola tampak atau pengukuran garis pada foto."
+            )
         elif data.get("model_candidates"):
             paragraphs.append("Kategori pola yang ditandai model: " + ", ".join(data["model_candidates"]) + ".")
         else:
             paragraphs.append("Tidak ada kategori pola yang mencapai ambang model pada foto ini.")
+            paragraphs.append(f"Ringkasan tangan {side}: belum ada kategori yang dapat dirangkum pada ambang ini.")
         manual = []
         for key, title in LINE_LABELS.items():
             values = []
