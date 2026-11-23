@@ -113,9 +113,12 @@ def render_client_analysis(get_predictor):
         for side, item in results.items():
             st.markdown(item["narrative"])
             q = item["quality"]
+            if q.get("raw_sharpness", float('inf')) < 2.0:
+                st.warning(f"Foto tangan {side} mungkin kurang tajam. Coba ulang dengan kamera "
+                           "stabil dan fokus pada garis telapak. Pemeriksaan ini masih perkiraan.")
             if q["sharpness"] < 80 or q["brightness"] < 55 or q["brightness"] > 220:
-                st.warning(f"Foto tangan {side} mungkin membatasi detail. Hasil tetap ditampilkan; "
-                           "periksa foto asli secara manual.")
+                st.warning(f"Foto tangan {side} mungkin membatasi detail. Coba foto ulang dengan "
+                           "pencahayaan merata dan telapak yang jelas.")
             with st.expander(f"Detail teknis tangan {side}"):
                 st.image(item["ridge"], caption="Peta ridge (bukan penanda garis utama)",
                          width="stretch", clamp=True)
