@@ -19,6 +19,20 @@ class HandDetection:
     detected: bool
 
 
+def estimate_sharpness(image_bytes):
+    """Heuristic on the unenhanced center crop, not a validated quality score."""
+    with Image.open(io.BytesIO(image_bytes)) as source:
+        image = ImageOps.exif_transpose(source).convert("L")
+        width, height = image.size
+        side = min(width, height)
+        left, top = (width - side) // 2, (height - side) // 2
+        crop = image.crop((left, top, left + side, top + side)).resize((512, 512))
+        gray = np.asarray(crop, dtype=np.float32)
+    dx = np.diff(gray, axis=1)
+    dy = np.diff(gray, axis=0)
+    return float((np.mean(np.abs(dx)) + np.mean(np.abs(dy))) / 2)
+
+
 def validate_hand_image(image_bytes, detector=None):
     """Check the same center-square region used by inference, with EXIF rotation."""
     with Image.open(io.BytesIO(image_bytes)) as source:
@@ -37,7 +51,9 @@ def validate_hand_image(image_bytes, detector=None):
         raise HandDetectorUnavailable("Pemeriksaan tangan sedang tidak tersedia.") from exc
     if not detected:
         raise HandNotDetected(
-            "Tangan tidak terdeteksi. Gunakan foto telapak tangan terbuka dan terlihat jelas."
+            "Tangan tidak terdeteksi. Foto hanya telapak tangan terbuka dengan seluruh jari "
+            "terlihat, posisikan di tengah, dan gunakan cahaya merata. "
+            "Jika foto terpotong atau miring, ambil ulang dari jarak sedikit lebih jauh."
         )
     return HandDetection(detected=True)
 
