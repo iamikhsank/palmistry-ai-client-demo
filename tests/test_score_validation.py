@@ -46,6 +46,17 @@ class ScoreValidationTests(unittest.TestCase):
                                                 "model_probabilities": {"other": .8}}})
         self.assertIn("Kategori lainnya yang ditandai: Pola lain", text)
 
+    def test_summary_uses_only_selected_ranked_scores(self):
+        names = {"mark_island": "Tanda Pulau", "branch_terminal_fork": "Cabang Garpu",
+                 "mark_jupiter_star": "Bintang Yupiter"}
+        text = make_copyable_report({"kiri": {"model_names": names,
+            "model_probabilities": {"mark_island": .7, "branch_terminal_fork": .9,
+                                    "mark_jupiter_star": .2}}})
+        summary = text.split("Ringkasan tangan kiri:", 1)[1].split("\n", 1)[0]
+        self.assertIn("Cabang Garpu, Tanda Pulau", summary)
+        self.assertNotIn("Bintang Yupiter", summary)
+        self.assertIn("bukan kepastian", summary)
+
 
 if __name__ == "__main__":
     unittest.main()
