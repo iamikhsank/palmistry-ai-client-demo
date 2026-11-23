@@ -153,6 +153,8 @@ elif page == "Live Prediction":
                 st.warning("Pencahayaan kurang ideal. Coba ambil ulang foto dengan cahaya lebih merata.")
             if quality["sharpness"] < 80:
                 st.warning("Foto terlihat kurang tajam. Stabilkan kamera dan fokuskan pada garis telapak.")
+            if quality.get("raw_sharpness", float('inf')) < 2.0:
+                st.warning("Foto asli mungkin kurang tajam. Stabilkan kamera dan fokuskan pada garis telapak. Pemeriksaan ini masih perkiraan.")
 
             if st.button("Jalankan Prediksi AI", type="primary", width="stretch"):
                 with st.spinner("Memuat checkpoint ResNet50 dan menjalankan inferensi..."):
