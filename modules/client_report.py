@@ -61,19 +61,23 @@ def make_copyable_report(records):
         if selected:
             labels = [names[fid] for fid, _ in selected]
             paragraphs.append(
-                f"Pada foto tangan {side}, model menandai {len(labels)} kategori pola: "
-                + ", ".join(labels) + ". Berikut keterangan setiap kategori berdasarkan referensi pola telapak."
+                f"Pada foto tangan {side}, model menandai {len(labels)} kategori pola. "
+                "Uraian berikut menjelaskan kategori yang ditandai, bukan pengukuran "
+                "langsung bentuk atau lokasi pada foto."
             )
-            for fid, _ in selected:
-                description = FEATURE_EXPLANATIONS.get(fid)
-                if description:
-                    detail = FEATURE_DETAILS.get(fid, "").split(". ")[0].rstrip(".")
-                    text = f"{names[fid]}: dalam referensi, kategori ini mengacu pada {description}."
-                    if detail:
-                        text += f" {detail}."
-                    paragraphs.append(text)
-                else:
-                    paragraphs.append(f"{names[fid]}: kategori pola ini ditandai oleh model.")
+            covered = set()
+            for title, feature_ids in NARRATIVE_GROUPS:
+                matches = [fid for fid, _ in selected if fid in feature_ids]
+                if not matches:
+                    continue
+                descriptions = [f"{names[fid]} ({FEATURE_EXPLANATIONS[fid]})"
+                                if fid in FEATURE_EXPLANATIONS else names[fid]
+                                for fid in matches]
+                paragraphs.append(f"{title}: model menandai " + "; ".join(descriptions) + ".")
+                covered.update(matches)
+            other = [names[fid] for fid, _ in selected if fid not in covered]
+            if other:
+                paragraphs.append("Kategori lainnya yang ditandai: " + ", ".join(other) + ".")
         elif data.get("model_candidates"):
             paragraphs.append("Kategori pola yang ditandai model: " + ", ".join(data["model_candidates"]) + ".")
         else:
@@ -119,6 +123,16 @@ FEATURE_EXPLANATIONS = {
     "fork_origin_separation": "percabangan menyerupai garpu pada pangkal garis",
     "discontinuity_line_break": "pola terputus atau diskontinuitas pada garis",
 }
+
+NARRATIVE_GROUPS = (
+    ("Pola cabang dan kesinambungan", {"branch_terminal_fork", "branch_ascending_jupiter",
+       "feathering_downward", "fork_origin_separation", "discontinuity_line_break"}),
+    ("Pola pada garis", {"mark_island", "mark_obstacle_bar", "pattern_chained_origin"}),
+    ("Tanda pada area telapak", {"mark_apollo_star", "mark_jupiter_star",
+       "mark_venus_square", "mark_venus_grille"}),
+    ("Kategori garis lainnya", {"line_influence_mars", "line_mars_sister",
+       "line_rascettes_wrist", "line_marriage"}),
+)
 
 # Keterangan pola sebagai panduan membaca kategori, bukan pengukuran foto.
 FEATURE_DETAILS = {
