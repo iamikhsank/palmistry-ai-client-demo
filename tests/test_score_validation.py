@@ -34,12 +34,29 @@ class ScoreValidationTests(unittest.TestCase):
             "kanan": {"model_names": names, "model_probabilities": {"branch_terminal_fork": .9}},
         })
         left, right = text.split("TANGAN KANAN")
+        right = right.split("KESIMPULAN UTAMA")[0]
         self.assertIn("Pola pada garis", left)
         self.assertIn("Tanda Pulau", left)
         self.assertNotIn("Cabang Garpu", left)
         self.assertIn("Pola cabang dan kesinambungan", right)
         self.assertNotIn("Tanda Pulau", right)
         self.assertIn("bukan pengukuran", text)
+
+    def test_overall_summary_respects_each_hand_and_case(self):
+        names = {"mark_island": "Tanda Pulau", "branch_ascending_jupiter": "Cabang Yupiter"}
+        text = make_copyable_report({
+            "kiri": {"model_names": names, "model_probabilities": {"mark_island": .9}},
+            "kanan": {"model_names": names, "model_probabilities": {"branch_ascending_jupiter": .8}},
+        })
+        summary = text.split("KESIMPULAN UTAMA", 1)[1]
+        self.assertIn("tangan kiri: Tanda Pulau", summary)
+        self.assertIn("tangan kanan: Cabang Yupiter", summary)
+        self.assertIn("bukan hasil pengukuran garis", summary)
+
+    def test_summary_does_not_invent_empty_side(self):
+        text = make_copyable_report({"kiri": {"model_names": {}, "model_probabilities": {}}})
+        self.assertIn("tangan kiri: tidak ada kategori di atas ambang", text)
+        self.assertNotIn("tangan kanan:", text)
 
     def test_unknown_feature_name_is_preserved(self):
         text = make_copyable_report({"kiri": {"model_names": {"other": "Pola lain"},
