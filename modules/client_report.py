@@ -50,6 +50,7 @@ DETAIL_CHOICES = {
 def make_copyable_report(records):
     """Describe model labels without inventing locations or line measurements."""
     paragraphs = ["KETERANGAN TELAPAK TANGAN"]
+    summaries = []
     for side in ("kiri", "kanan"):
         if side not in records:
             continue
@@ -84,11 +85,13 @@ def make_copyable_report(records):
                 + ", ".join(top) + ". Urutan ini menunjukkan skor model, bukan kepastian "
                 "bahwa pola tampak atau pengukuran garis pada foto."
             )
+            summaries.append(f"tangan {side}: " + ", ".join(top))
         elif data.get("model_candidates"):
             paragraphs.append("Kategori pola yang ditandai model: " + ", ".join(data["model_candidates"]) + ".")
         else:
             paragraphs.append("Tidak ada kategori pola yang mencapai ambang model pada foto ini.")
             paragraphs.append(f"Ringkasan tangan {side}: belum ada kategori yang dapat dirangkum pada ambang ini.")
+            summaries.append(f"tangan {side}: tidak ada kategori di atas ambang")
         manual = []
         for key, title in LINE_LABELS.items():
             values = []
@@ -108,6 +111,10 @@ def make_copyable_report(records):
         if manual:
             paragraphs.append("CATATAN TAMBAHAN PENINJAU")
             paragraphs.extend(manual)
+    if summaries:
+        paragraphs.append("KESIMPULAN UTAMA\n" + "; ".join(summaries) +
+                          ". Ringkasan ini mengikuti skor model untuk masing-masing foto, "
+                          "bukan hasil pengukuran garis.")
     paragraphs.append("Catatan: kategori merupakan hasil model, bukan pemetaan garis utama. "
                       "Posisi, panjang, dan usia garis belum diukur.")
     return "\n\n".join(paragraphs) + "\n"
