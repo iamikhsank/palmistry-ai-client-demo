@@ -12,6 +12,7 @@ from modules.client_report import (
 )
 from modules.crop_preview import center_crop_preview
 from modules.hand_validation import HandNotDetected, HandDetectorUnavailable
+from modules.line_geometry import analyze_ridge_candidates
 from modules.palm_dl_pipeline import TARGET_PALM_FEATURES
 
 
@@ -122,6 +123,23 @@ def render_client_analysis(get_predictor):
             with st.expander(f"Detail teknis tangan {side}"):
                 st.image(item["ridge"], caption="Peta ridge (bukan penanda garis utama)",
                          width="stretch", clamp=True)
+                st.caption("Eksperimen geometri: kandidat pada peta ridge belum dikenali "
+                           "sebagai garis utama dan belum divalidasi pada foto.")
+                if st.button("Hitung kandidat geometri", key=f"geometry_{side}"):
+                    candidates = analyze_ridge_candidates(item["ridge"])
+                    if candidates:
+                        st.dataframe(pd.DataFrame([
+                            {"Kandidat": index + 1,
+                             "Panjang relatif terhadap lebar citra": round(c["length_relative_width"], 2),
+                             "Batas x kiri, y atas, x kanan, y bawah": tuple(round(v, 2) for v in c["bbox_relative"]),
+                             "Kelompok persilangan kandidat": c["junction_clusters"]}
+                            for index, c in enumerate(candidates)
+                        ]), hide_index=True, width="stretch")
+                        st.caption("Koordinat relatif terhadap citra persegi; panjang adalah total "
+                                   "jalur kandidat, bukan panjang fisik atau garis utama. "
+                                   "Persilangan, tekstur dan noise dapat menyerupai cabang.")
+                    else:
+                        st.info("Tidak ada kandidat geometri yang memenuhi pengaturan awal.")
                 names = {f["id"]: f["name_id"] for f in TARGET_PALM_FEATURES}
                 rows = [{"Pola": names.get(k, k), "Skor model": v}
                         for k, v in sorted(item["scores"].items(), key=lambda x: -x[1])]
