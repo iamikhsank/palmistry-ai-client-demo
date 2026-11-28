@@ -7,7 +7,7 @@ textures can be counted as branches; no calibration or clinical claims.
 from __future__ import annotations
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 from scipy import ndimage
 
 
@@ -78,7 +78,49 @@ def describe_mask(mask, min_pixels=15, max_candidates=5):
     return sorted(results, key=lambda item: item["pixels"], reverse=True)[:max_candidates]
 
 
-def analyze_ridge_candidates(ridge, size=256, threshold_percentile=85):
+def palm_mask_from_landmarks(landmarks, size=256, margin_fraction=0.015):
+    """Approximate palm-only polygon from normalized MediaPipe hand landmarks.
+
+    The contour is approximate, not a segmentation or a line label. Landmarks
+    must be from the same square crop as the ridge image, before resizing.
+    """
+    points = np.asarray(landmarks, dtype=float)
+    if (points.ndim != 2 or points.shape[0] < 21 or points.shape[1] != 2
+            or not np.isfinite(points).all() or size < 32
+            or not 0 <= margin_fraction <= 0.1):
+        raise ValueError("Invalid palm landmarks or mask parameters")
+    # Refuse clipped hands rather than silently extrapolate the palm boundary.
+    selected = points[[0, 1, 5, 9, 13, 17]]
+    if np.any(selected < 0) or np.any(selected > 1):
+        raise ValueError("Palm landmarks extend beyond the analyzed image")
+    polygon = [(int(round(x * (size - 1))), int(round(y * (size - 1))))
+               for x, y in selected]
+    canvas = Image.new("1", (size, size), 0)
+    ImageDraw.Draw(canvas).polygon(polygon, fill=1)
+    mask = np.asarray(canvas, dtype=bool)
+    margin = int(round(size * margin_fraction))
+    if margin:
+        mask = ndimage.binary_erosion(mask, iterations=margin)
+    if mask.sum() < size * size * 0.01:
+        raise ValueError("Detected palm area is too small")
+    return mask
+
+
+def detect_palm_landmarks(rgb):
+    """Detect landmarks in the same square image used for model inference."""
+    import mediapipe as mp
+    rgb = np.asarray(rgb, dtype=np.uint8)
+    if rgb.ndim != 3 or rgb.shape[2] != 3 or rgb.shape[0] != rgb.shape[1]:
+        raise ValueError("Expected a square RGB inference crop")
+    with mp.solutions.hands.Hands(static_image_mode=True, max_num_hands=1,
+                                   min_detection_confidence=0.5) as hands:
+        result = hands.process(rgb)
+    if not result.multi_hand_landmarks:
+        return None
+    return np.array([(p.x, p.y) for p in result.multi_hand_landmarks[0].landmark])
+
+
+def analyze_ridge_candidates(ridge, size=256, threshold_percentile=85, palm_mask=None):
     """Extract thresholded candidates; output is exploratory, not line recognition."""
     ridge = np.asarray(ridge)
     if ridge.ndim != 2 or not np.isfinite(ridge).all():
@@ -89,6 +131,12 @@ def analyze_ridge_candidates(ridge, size=256, threshold_percentile=85):
                        .resize((size, size), Image.Resampling.BILINEAR))
     if np.ptp(ridge) == 0:
         return []
-    threshold = max(25.0, float(np.percentile(ridge, threshold_percentile)))
-    mask = ridge > threshold
+    if palm_mask is not None:
+        palm_mask = np.asarray(palm_mask, dtype=bool)
+        if palm_mask.shape != ridge.shape or not palm_mask.any():
+            raise ValueError("Palm mask must be nonempty and match the resized ridge")
+    else:
+        palm_mask = np.ones_like(ridge, dtype=bool)
+    threshold = max(25.0, float(np.percentile(ridge[palm_mask], threshold_percentile)))
+    mask = (ridge > threshold) & palm_mask
     return describe_mask(mask)
