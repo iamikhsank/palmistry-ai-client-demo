@@ -12,7 +12,8 @@ from modules.client_report import (
 )
 from modules.crop_preview import center_crop_preview
 from modules.hand_validation import HandNotDetected, HandDetectorUnavailable
-from modules.line_geometry import analyze_ridge_candidates
+from modules.line_geometry import (analyze_ridge_candidates, detect_palm_landmarks,
+                                   palm_mask_from_landmarks)
 from modules.palm_dl_pipeline import TARGET_PALM_FEATURES
 
 
@@ -126,8 +127,19 @@ def render_client_analysis(get_predictor):
                 st.caption("Eksperimen geometri: kandidat pada peta ridge belum dikenali "
                            "sebagai garis utama dan belum divalidasi pada foto.")
                 if st.button("Hitung kandidat geometri", key=f"geometry_{side}"):
-                    candidates = analyze_ridge_candidates(item["ridge"])
+                    try:
+                        landmarks = detect_palm_landmarks(item["preview"])
+                        if landmarks is None:
+                            raise ValueError("Titik tangan tidak terdeteksi pada area analisis.")
+                        palm_mask = palm_mask_from_landmarks(landmarks)
+                        candidates = analyze_ridge_candidates(item["ridge"], palm_mask=palm_mask)
+                    except (ValueError, ImportError, RuntimeError):
+                        candidates = None
+                        st.warning("Area telapak belum dapat ditentukan. Ambil ulang foto dengan "
+                                   "seluruh tangan terlihat dan cahaya merata.")
                     if candidates:
+                        st.image(palm_mask.astype('uint8') * 255,
+                                 caption="Perkiraan area telapak yang dianalisis", width="stretch")
                         st.dataframe(pd.DataFrame([
                             {"Kandidat": index + 1,
                              "Panjang relatif terhadap lebar citra": round(c["length_relative_width"], 2),
@@ -138,7 +150,7 @@ def render_client_analysis(get_predictor):
                         st.caption("Koordinat relatif terhadap citra persegi; panjang adalah total "
                                    "jalur kandidat, bukan panjang fisik atau garis utama. "
                                    "Persilangan, tekstur dan noise dapat menyerupai cabang.")
-                    else:
+                    elif candidates is not None:
                         st.info("Tidak ada kandidat geometri yang memenuhi pengaturan awal.")
                 names = {f["id"]: f["name_id"] for f in TARGET_PALM_FEATURES}
                 rows = [{"Pola": names.get(k, k), "Skor model": v}
