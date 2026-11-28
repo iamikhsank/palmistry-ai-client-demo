@@ -15,7 +15,7 @@ from modules.crop_preview import center_crop_preview
 from modules.hand_validation import HandNotDetected, HandDetectorUnavailable
 from modules.line_geometry import (analyze_ridge_candidates, detect_palm_landmarks,
                                    palm_mask_from_landmarks)
-from modules.experimental_line_paths import trace_ridge_zones
+from modules.experimental_narrative import stable_zones, describe_geometry
 from modules.palm_dl_pipeline import TARGET_PALM_FEATURES
 
 
@@ -135,7 +135,7 @@ def render_client_analysis(get_predictor):
                             raise ValueError("Titik tangan tidak terdeteksi pada area analisis.")
                         palm_mask = palm_mask_from_landmarks(landmarks)
                         candidates = analyze_ridge_candidates(item["ridge"], palm_mask=palm_mask)
-                        paths, zones = trace_ridge_zones(item["ridge"], landmarks, palm_mask)
+                        paths, zones = stable_zones(item["ridge"], landmarks, palm_mask)
                     except (ValueError, ImportError, RuntimeError):
                         candidates = None
                         st.warning("Area telapak belum dapat ditentukan. Ambil ulang foto dengan "
@@ -155,7 +155,9 @@ def render_client_analysis(get_predictor):
                                    "Persilangan, tekstur dan noise dapat menyerupai cabang.")
                         st.markdown("**Pelacakan jalur menurut zona referensi — eksperimen**")
                         st.caption("Penamaan zona merupakan dugaan berbasis posisi, belum validasi "
-                                   "garis kehidupan, kepala, atau asmara. Persilangan dapat mengubah jalur.")
+                                   "garis kehidupan, kepala, atau asmara. Kandidat diperiksa pada tiga "
+                                   "ambang; kestabilan bukan jaminan ketepatan.")
+                        st.code(describe_geometry(side, zones), language=None)
                         if zones:
                             overlay = Image.fromarray(item['preview']).convert('RGB').resize((512,512))
                             draw = ImageDraw.Draw(overlay)
