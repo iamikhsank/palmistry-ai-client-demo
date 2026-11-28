@@ -4,6 +4,7 @@ import hashlib
 
 import pandas as pd
 import streamlit as st
+from PIL import Image, ImageDraw
 
 from model_runtime import PalmImageProcessor, predict_image
 from modules.client_report import (
@@ -14,6 +15,7 @@ from modules.crop_preview import center_crop_preview
 from modules.hand_validation import HandNotDetected, HandDetectorUnavailable
 from modules.line_geometry import (analyze_ridge_candidates, detect_palm_landmarks,
                                    palm_mask_from_landmarks)
+from modules.experimental_line_paths import trace_ridge_zones
 from modules.palm_dl_pipeline import TARGET_PALM_FEATURES
 
 
@@ -133,6 +135,7 @@ def render_client_analysis(get_predictor):
                             raise ValueError("Titik tangan tidak terdeteksi pada area analisis.")
                         palm_mask = palm_mask_from_landmarks(landmarks)
                         candidates = analyze_ridge_candidates(item["ridge"], palm_mask=palm_mask)
+                        paths, zones = trace_ridge_zones(item["ridge"], landmarks, palm_mask)
                     except (ValueError, ImportError, RuntimeError):
                         candidates = None
                         st.warning("Area telapak belum dapat ditentukan. Ambil ulang foto dengan "
@@ -150,6 +153,27 @@ def render_client_analysis(get_predictor):
                         st.caption("Koordinat relatif terhadap citra persegi; panjang adalah total "
                                    "jalur kandidat, bukan panjang fisik atau garis utama. "
                                    "Persilangan, tekstur dan noise dapat menyerupai cabang.")
+                        st.markdown("**Pelacakan jalur menurut zona referensi — eksperimen**")
+                        st.caption("Penamaan zona merupakan dugaan berbasis posisi, belum validasi "
+                                   "garis kehidupan, kepala, atau asmara. Persilangan dapat mengubah jalur.")
+                        if zones:
+                            overlay = Image.fromarray(item['preview']).convert('RGB').resize((512,512))
+                            draw = ImageDraw.Draw(overlay)
+                            colors = {'kehidupan':'#ff4242','kepala':'#20bfff','asmara':'#ffcb33'}
+                            for label, zone in zones.items():
+                                xy = paths[zone['path_index']]['xy'] * (511/255)
+                                draw.line([tuple(map(float,p)) for p in xy], fill=colors[label], width=3)
+                            st.image(overlay, caption="Jalur kandidat: merah kehidupan, biru kepala, kuning asmara",
+                                     width="stretch")
+                            st.dataframe(pd.DataFrame([
+                                {'Zona referensi': label.capitalize(),
+                                 'Panjang jalur / lebar telapak': round(zone['length_palm_widths'], 2),
+                                 'Piksel persilangan kandidat': zone['junction_pixels']}
+                                for label, zone in zones.items()]), hide_index=True, width="stretch")
+                            st.caption("Ukuran mengikuti jalur kandidat dalam foto, bukan sentimeter. "
+                                       "Piksel persilangan bukan jumlah cabang yang terverifikasi.")
+                        else:
+                            st.info("Belum ada jalur zona yang cukup terpisah untuk ditampilkan.")
                     elif candidates is not None:
                         st.info("Tidak ada kandidat geometri yang memenuhi pengaturan awal.")
                 names = {f["id"]: f["name_id"] for f in TARGET_PALM_FEATURES}

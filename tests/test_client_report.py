@@ -33,6 +33,7 @@ class ClientReportTests(unittest.TestCase):
             "kanan": {"model_probabilities": {"mark_island": float('nan'), "branch_terminal_fork": 0.8}, "model_names": names},
         })
         left, right = report.split("TANGAN KANAN")
+        right = right.split("KESIMPULAN UTAMA")[0]
         self.assertIn("Tanda Pulau", left)
         self.assertNotIn("Cabang Garpu", left)
         self.assertIn("Cabang Garpu", right)
